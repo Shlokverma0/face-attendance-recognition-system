@@ -146,3 +146,30 @@ table th {
     color: var(--muted);
     font-style: italic;
 }
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+}
+.stat-card {
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+}
+.stat-card h3 {
+    font-size: 2rem;
+    margin: 0 0 4px 0;
+}
+.stat-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+.stat-present  h3 { color: #16a34a; }
+.stat-entry    h3 { color: #22c55e; }
+.stat-exit     h3 { color: #3b82f6; }
+.stat-inside   h3 { color: #f59e0b; }
+.stat-completed h3 { color: #6366f1; }

@@ -1,19 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Mark Exit{% endblock %}
 {% block content %}
-<div class="card" data-endpoint="{{ url_for('mark_exit') }}" data-mode="exit">
+<div class="card">
     <h2>Mark Exit</h2>
-    <p>Click "Start Camera" — exit will be marked automatically when a registered face is recognized. Multiple faces are detected at once.</p>
-    <div class="video-container" style="position: relative; display: inline-block;">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="overlay" style="position:absolute; top:0; left:0; pointer-events:none;"></canvas>
-        <canvas id="canvas" style="display:none;"></canvas>
+    <p>This camera connects directly to a phone streaming RTSP (e.g. the "IP Webcam" app) — no browser webcam is used here.</p>
+
+    <div class="rtsp-controls">
+        <label for="rtspUrl">RTSP URL</label>
+        <input type="text" id="rtspUrl" placeholder="rtsp://192.168.1.5:8080/h264_ulaw.sdp" style="width: 100%; max-width: 420px;">
+        <div style="margin-top: 10px;">
+            <button id="startExitCam" class="btn primary">▶ Start Exit Camera</button>
+            <button id="stopExitCam" class="btn danger">⏹ Stop</button>
+        </div>
     </div>
-    <div>
-        <button id="startCam" class="btn primary">▶ Start Camera</button>
-        <button id="stopCam" class="btn danger">⏹ Stop</button>
-    </div>
+
+    <div id="exitCamStatus" class="info" style="margin-top: 12px;">Exit camera not started yet.</div>
+
+    <div id="exitDetails"></div>
     <div id="attendanceResult"></div>
 </div>
-<script src="{{ url_for('static', filename='attendance.js') }}"></script>
+<script src="{{ url_for('static', filename='exit.js') }}"></script>
 {% endblock %}

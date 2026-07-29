@@ -5,8 +5,10 @@
     <h1>Welcome to Face Recognition Attendance</h1>
     <p>Automatic attendance marking using facial recognition.</p>
     <div class="buttons">
-        <a href="{{ url_for('register') }}" class="btn primary">Register Student</a>
-        <a href="{{ url_for('mark_attendance') }}" class="btn secondary">Mark Attendance</a>
+        <a href="{{ url_for('mark_attendance') }}" class="btn primary">Mark Attendance</a>
+        <a href="{{ url_for('mark_exit') }}" class="btn primary">Mark Exit</a>
+        <a href="{{ url_for('register') }}" class="btn secondary">Register Student</a>
+        <a href="{{ url_for('login') }}" class="btn secondary">Admin Login</a>
     </div>
 </div>
 {% endblock %}

@@ -1,128 +1,70 @@
 // exit.js
-// Dedicated exit-marking page. Same camera capture / overlay-drawing
-// pattern as attendance.js, but talks to /mark-exit and renders the
-// Employee Name / ID / Entry Time / Exit Time / Status detail block.
+// This page no longer touches the browser's own camera. Instead it tells
+// the Flask server to start/stop reading a phone's RTSP stream in a
+// background thread, and polls /exit-camera/status to show whatever that
+// background worker last recognized.
 
 document.addEventListener('DOMContentLoaded', function () {
-    const card = document.querySelector('.card[data-endpoint]');
-    if (!card) return; // not on the exit page
-
-    const ENDPOINT = card.dataset.endpoint;
-
-    const video = document.getElementById('video');
-    const overlay = document.getElementById('overlay');
-    const canvas = document.getElementById('canvas');
-    const startBtn = document.getElementById('startCam');
-    const stopBtn = document.getElementById('stopCam');
-    const resultDiv = document.getElementById('attendanceResult');
+    const rtspInput = document.getElementById('rtspUrl');
+    const startBtn = document.getElementById('startExitCam');
+    const stopBtn = document.getElementById('stopExitCam');
+    const statusDiv = document.getElementById('exitCamStatus');
     const detailsDiv = document.getElementById('exitDetails');
+    const resultDiv = document.getElementById('attendanceResult');
 
-    const ctx = overlay.getContext('2d');
-    const captureCtx = canvas.getContext('2d');
+    if (!startBtn) return; // not on the exit page
 
-    let stream = null;
-    let captureInterval = null;
-    const NORMAL_INTERVAL_MS = 2000;  // normal polling rate
-    const FAST_INTERVAL_MS = 250;     // fast rate while waiting for a blink,
-                                       // fast enough to actually catch the
-                                       // ~150-400ms window eyes are closed
-    let currentIntervalMs = NORMAL_INTERVAL_MS;
-
-    // Track the last message shown per employee so we don't spam the UI
-    // (and don't keep re-rendering the details panel) every interval with
-    // the exact same result. This is what makes the page "stop repeated
-    // updates until another face is detected."
+    let pollTimer = null;
     const lastMessageByRoll = {};
 
-    async function startCamera() {
+    async function pollStatus() {
         try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            video.srcObject = stream;
-
-            video.onloadedmetadata = () => {
-                overlay.width = video.videoWidth;
-                overlay.height = video.videoHeight;
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-            };
-
-            currentIntervalMs = NORMAL_INTERVAL_MS;
-            captureInterval = setInterval(captureAndSend, currentIntervalMs);
+            const res = await fetch('/exit-camera/status');
+            const data = await res.json();
+            handleStatus(data);
         } catch (err) {
-            console.error('Camera error:', err);
-            resultDiv.innerHTML = '<p class="error">❌ Camera access denied or unavailable.</p>';
+            console.error('Status poll error:', err);
         }
     }
 
-    function setCaptureRate(ms) {
-        if (ms === currentIntervalMs) return;
-        currentIntervalMs = ms;
-        if (captureInterval) {
-            clearInterval(captureInterval);
-            captureInterval = setInterval(captureAndSend, currentIntervalMs);
+    function startPolling() {
+        if (pollTimer) return;
+        pollTimer = setInterval(pollStatus, 1000);
+        pollStatus(); // fetch immediately instead of waiting a full second
+    }
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
         }
     }
 
-    function stopCamera() {
-        if (captureInterval) {
-            clearInterval(captureInterval);
-            captureInterval = null;
-        }
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-        }
-        video.srcObject = null;
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-    }
-
-    function captureAndSend() {
-        if (!video.videoWidth || !video.videoHeight) return;
-
-        captureCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-
-        fetch(ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData })
-        })
-            .then(res => res.json())
-            .then(data => handleResponse(data))
-            .catch(err => console.error('Fetch error:', err));
-    }
-
-    function handleResponse(data) {
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-
+    function handleStatus(data) {
         if (data.error) {
-            resultDiv.innerHTML = '<p class="error">❌ ' + data.error + '</p>';
+            statusDiv.className = 'error';
+            statusDiv.textContent = '❌ ' + data.error;
             return;
         }
 
         if (!data.faces || data.faces.length === 0) {
-            setCaptureRate(NORMAL_INTERVAL_MS);
-            if (data.message) {
-                resultDiv.innerHTML = '<p>' + data.message + '</p>';
-            }
+            statusDiv.className = 'info';
+            statusDiv.textContent = data.message || 'Watching for a face...';
             return;
         }
 
-        const anyPending = data.faces.some(f => f.status === 'liveness_pending');
-        setCaptureRate(anyPending ? FAST_INTERVAL_MS : NORMAL_INTERVAL_MS);
+        statusDiv.className = 'info';
+        statusDiv.textContent = 'Camera active — watching for faces.';
 
         let messagesHtml = '';
 
         data.faces.forEach(face => {
-            drawBox(face);
+            const key = face.roll_no || face.name || 'unknown';
 
             if (face.status === 'liveness_pending' && typeof face.ear !== 'undefined') {
                 console.log('[liveness] ' + face.name + ' EAR = ' + face.ear);
             }
 
-            const key = face.roll_no || face.name || 'unknown';
-
-            // Avoid re-printing / re-rendering the exact same result repeatedly
             if (lastMessageByRoll[key] === face.message) return;
             lastMessageByRoll[key] = face.message;
 
@@ -135,7 +77,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             messagesHtml += '<p class="' + cssClass + '">' + face.message + '</p>';
 
-            // Update the structured details panel for recognized employees
             if (face.roll_no) {
                 detailsDiv.innerHTML =
                     '<div class="exit-detail-card">' +
@@ -153,35 +94,49 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function drawBox(face) {
-        if (!face.box) return;
-        const [top, right, bottom, left] = face.box;
+    startBtn.addEventListener('click', async function () {
+        const rtspUrl = (rtspInput.value || '').trim();
+        if (!rtspUrl) {
+            alert("Please enter the RTSP URL shown in your phone's camera app first.");
+            return;
+        }
 
-        let color = '#888'; // unknown / default
-        if (face.status === 'marked') color = '#3b82f6';           // blue = exit marked
-        else if (face.status === 'already_exited') color = '#f59e0b'; // amber = already done
-        else if (face.status === 'no_entry') color = '#ef4444';       // red = no entry today
-        else if (face.status === 'liveness_pending') color = '#a855f7'; // purple = please blink
-        else if (face.status === 'error') color = '#ef4444';
+        statusDiv.className = 'info';
+        statusDiv.textContent = 'Connecting to camera...';
 
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.strokeRect(left, top, right - left, bottom - top);
+        try {
+            const res = await fetch('/exit-camera/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rtsp_url: rtspUrl })
+            });
+            const data = await res.json();
 
-        const label = face.name || 'Unknown';
-        ctx.font = '16px Arial';
-        const textWidth = ctx.measureText(label).width;
+            if (!data.success) {
+                statusDiv.className = 'error';
+                statusDiv.textContent = '❌ ' + data.message;
+                return;
+            }
 
-        ctx.fillStyle = color;
-        ctx.fillRect(left, bottom, textWidth + 10, 22);
+            startPolling();
+        } catch (err) {
+            console.error('Start exit camera error:', err);
+            statusDiv.className = 'error';
+            statusDiv.textContent = '❌ Could not reach the server.';
+        }
+    });
 
-        ctx.fillStyle = '#000';
-        ctx.fillText(label, left + 5, bottom + 16);
-    }
+    stopBtn.addEventListener('click', async function () {
+        stopPolling();
+        try {
+            const res = await fetch('/exit-camera/stop', { method: 'POST' });
+            const data = await res.json();
+            statusDiv.className = 'info';
+            statusDiv.textContent = data.message || 'Camera stopped.';
+        } catch (err) {
+            console.error('Stop exit camera error:', err);
+        }
+    });
 
-    startBtn.addEventListener('click', startCamera);
-    stopBtn.addEventListener('click', stopCamera);
-
-    // Stop the camera cleanly if the user navigates away
-    window.addEventListener('beforeunload', stopCamera);
+    window.addEventListener('beforeunload', stopPolling);
 });

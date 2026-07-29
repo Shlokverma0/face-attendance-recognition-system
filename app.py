@@ -241,6 +241,13 @@ def load_known_students(c):
 
 liveness_state = {}
 
+# Guards the read-then-write attendance logic (check if a row is "open",
+# then update/insert). With threaded=True, two nearly-simultaneous
+# requests for the same student could otherwise both read "not yet
+# marked" before either commits, causing duplicate writes. Held only
+# briefly around each student's DB check+write, not around whole requests.
+attendance_write_lock = threading.Lock()
+
 EAR_CLOSED_THRESHOLD = 0.25    # eyes counted as "closed" (i.e. a blink happened) below this
 LIVENESS_WINDOW_SECONDS = 8    # if no blink within this long, restart tracking
 
@@ -327,8 +334,10 @@ def mark_attendance():
     A cooldown prevents the same person from toggling entry/exit every
     couple seconds just by standing in front of the camera.
 
-    NOTE: left completely unmodified. The new /mark-exit route below is a
-    separate, independent feature and does not change this route's behaviour.
+    Coexists safely with the dedicated /mark-exit route (browser or RTSP):
+    both share attendance_write_lock, so even if both cameras see the same
+    person at nearly the same moment, only one can actually claim the
+    write — whichever gets there first. No more duplicate/racing marks.
     """
     if request.method == 'GET':
         return render_template('mark_attendance.html')
@@ -339,9 +348,9 @@ def mark_attendance():
     if not image_data:
         return jsonify({'faces': [], 'error': 'Image nahi mili'})
 
-    # Minimum gap (in seconds) required between an entry and the next
-    # exit/entry action for the same person, so a person standing in
-    # front of the camera doesn't get marked in and out repeatedly.
+    # Minimum gap (in seconds) required after a completed cycle before a
+    # fresh re-entry is allowed, so a person standing in front of the
+    # camera doesn't get marked in and out repeatedly.
     COOLDOWN_SECONDS = 60
 
     try:
@@ -383,83 +392,87 @@ def mark_attendance():
             face_result['roll_no'] = roll_no
 
             # Get the most recent row for this student today
-            c.execute(
-                'SELECT id, entry_time, exit_time FROM attendance '
-                'WHERE student_id = ? AND date = ? ORDER BY id DESC LIMIT 1',
-                (student_id, today)
-            )
-            existing = c.fetchone()
+            with attendance_write_lock:
+                c.execute(
+                    'SELECT id, entry_time, exit_time FROM attendance '
+                    'WHERE student_id = ? AND date = ? ORDER BY id DESC LIMIT 1',
+                    (student_id, today)
+                )
+                existing = c.fetchone()
 
-            def seconds_since(time_str):
-                last_dt = datetime.strptime(today + ' ' + time_str, '%Y-%m-%d %H:%M:%S')
-                return (now_dt - last_dt).total_seconds()
+                def seconds_since(time_str):
+                    last_dt = datetime.strptime(today + ' ' + time_str, '%Y-%m-%d %H:%M:%S')
+                    return (now_dt - last_dt).total_seconds()
 
-            if existing is None:
-                # No record today at all -> mark entry, but only once a
-                # live blink has been confirmed for this student.
-                ear = compute_face_ear(img_array, tuple(box))
-                if not check_liveness(student_id, ear):
-                    face_result['status'] = 'liveness_pending'
-                    face_result['ear'] = ear
-                    face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
-                else:
-                    clear_liveness(student_id)
-                    c.execute(
-                        'INSERT INTO attendance (student_id, date, entry_time, status) VALUES (?, ?, ?, ?)',
-                        (student_id, today, now_time, 'Present')
-                    )
-                    conn.commit()
-                    face_result['status'] = 'marked'
-                    face_result['action'] = 'entry'
-                    face_result['message'] = '✅ ' + name + ' - Entry marked! Time: ' + now_time
-
-            else:
-                attendance_id, entry_time, exit_time = existing
-
-                if entry_time is not None and exit_time is None:
-                    # Currently "inside" -> next detection should mark exit,
-                    # but only after the cooldown so we don't flip instantly.
-                    if seconds_since(entry_time) < COOLDOWN_SECONDS:
-                        face_result['status'] = 'already_marked'
+                if existing is None:
+                    # No record today at all -> mark entry, but only once a
+                    # live blink has been confirmed for this student.
+                    ear = compute_face_ear(img_array, tuple(box))
+                    if not check_liveness(student_id, ear):
+                        face_result['status'] = 'liveness_pending'
+                        face_result['ear'] = ear
+                        face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
+                    else:
+                        clear_liveness(student_id)
+                        c.execute(
+                            'INSERT INTO attendance (student_id, date, entry_time, status) VALUES (?, ?, ?, ?)',
+                            (student_id, today, now_time, 'Present')
+                        )
+                        conn.commit()
+                        face_result['status'] = 'marked'
                         face_result['action'] = 'entry'
-                        face_result['message'] = name + ' ki entry abhi mark hui hai.'
-                    else:
-                        ear = compute_face_ear(img_array, tuple(box))
-                        if not check_liveness(student_id, ear):
-                            face_result['status'] = 'liveness_pending'
-                            face_result['ear'] = ear
-                            face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
-                        else:
-                            clear_liveness(student_id)
-                            c.execute('UPDATE attendance SET exit_time = ? WHERE id = ?', (now_time, attendance_id))
-                            conn.commit()
-                            face_result['status'] = 'marked'
-                            face_result['action'] = 'exit'
-                            face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
+                        face_result['message'] = '✅ ' + name + ' - Entry marked! Time: ' + now_time
 
                 else:
-                    # Both entry & exit already done -> allow fresh re-entry,
-                    # but respect cooldown after the exit too.
-                    if exit_time is not None and seconds_since(exit_time) < COOLDOWN_SECONDS:
-                        face_result['status'] = 'already_marked'
-                        face_result['action'] = 'exit'
-                        face_result['message'] = name + ' ki exit abhi mark hui hai.'
-                    else:
-                        ear = compute_face_ear(img_array, tuple(box))
-                        if not check_liveness(student_id, ear):
-                            face_result['status'] = 'liveness_pending'
-                            face_result['ear'] = ear
-                            face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
-                        else:
-                            clear_liveness(student_id)
-                            c.execute(
-                                'INSERT INTO attendance (student_id, date, entry_time, status) VALUES (?, ?, ?, ?)',
-                                (student_id, today, now_time, 'Present')
-                            )
-                            conn.commit()
-                            face_result['status'] = 'marked'
+                    attendance_id, entry_time, exit_time = existing
+
+                    if entry_time is not None and exit_time is None:
+                        # Currently "inside" -> auto-mark exit here too,
+                        # same as before. Now safe alongside the dedicated
+                        # /mark-exit route because attendance_write_lock
+                        # serializes both, so only one can actually write
+                        # even if both cameras see the person at once.
+                        if seconds_since(entry_time) < COOLDOWN_SECONDS:
+                            face_result['status'] = 'already_marked'
                             face_result['action'] = 'entry'
-                            face_result['message'] = '✅ ' + name + ' - Re-entry marked! Time: ' + now_time
+                            face_result['message'] = name + ' ki entry abhi mark hui hai.'
+                        else:
+                            ear = compute_face_ear(img_array, tuple(box))
+                            if not check_liveness(student_id, ear):
+                                face_result['status'] = 'liveness_pending'
+                                face_result['ear'] = ear
+                                face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
+                            else:
+                                clear_liveness(student_id)
+                                c.execute('UPDATE attendance SET exit_time = ? WHERE id = ?', (now_time, attendance_id))
+                                conn.commit()
+                                face_result['status'] = 'marked'
+                                face_result['action'] = 'exit'
+                                face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
+
+                    else:
+                        # Both entry & exit already done -> allow fresh re-entry,
+                        # but respect cooldown after the exit.
+                        if exit_time is not None and seconds_since(exit_time) < COOLDOWN_SECONDS:
+                            face_result['status'] = 'already_marked'
+                            face_result['action'] = 'exit'
+                            face_result['message'] = name + ' ki exit abhi mark hui hai.'
+                        else:
+                            ear = compute_face_ear(img_array, tuple(box))
+                            if not check_liveness(student_id, ear):
+                                face_result['status'] = 'liveness_pending'
+                                face_result['ear'] = ear
+                                face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
+                            else:
+                                clear_liveness(student_id)
+                                c.execute(
+                                    'INSERT INTO attendance (student_id, date, entry_time, status) VALUES (?, ?, ?, ?)',
+                                    (student_id, today, now_time, 'Present')
+                                )
+                                conn.commit()
+                                face_result['status'] = 'marked'
+                                face_result['action'] = 'entry'
+                                face_result['message'] = '✅ ' + name + ' - Re-entry marked! Time: ' + now_time
 
             results.append(face_result)
 
@@ -508,60 +521,61 @@ def process_exit_image(img_array):
             face_result['roll_no'] = roll_no
 
             try:
-                # 1) Is there an OPEN record today (entry marked, exit not yet)?
-                c.execute(
-                    'SELECT id, entry_time, exit_time FROM attendance '
-                    'WHERE student_id = ? AND date = ? AND entry_time IS NOT NULL AND exit_time IS NULL '
-                    'ORDER BY id DESC LIMIT 1',
-                    (student_id, today)
-                )
-                open_record = c.fetchone()
-
-                if open_record:
-                    attendance_id, entry_time, _ = open_record
-                    ear = compute_face_ear(img_array, tuple(box))
-                    if not check_liveness(student_id, ear):
-                        face_result['status'] = 'liveness_pending'
-                        face_result['entry_time'] = entry_time
-                        face_result['ear'] = ear
-                        face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
-                    else:
-                        clear_liveness(student_id)
-                        c.execute(
-                            "UPDATE attendance SET exit_time = ?, status = 'Completed' WHERE id = ?",
-                            (now_time, attendance_id)
-                        )
-                        conn.commit()
-
-                        face_result['status'] = 'marked'
-                        face_result['entry_time'] = entry_time
-                        face_result['exit_time'] = now_time
-                        face_result['emp_status'] = 'Completed'
-                        face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
-
-                else:
-                    # 2) No open record — either already exited today, or never entered.
+                with attendance_write_lock:
+                    # 1) Is there an OPEN record today (entry marked, exit not yet)?
                     c.execute(
-                        'SELECT entry_time, exit_time FROM attendance '
-                        'WHERE student_id = ? AND date = ? AND entry_time IS NOT NULL AND exit_time IS NOT NULL '
+                        'SELECT id, entry_time, exit_time FROM attendance '
+                        'WHERE student_id = ? AND date = ? AND entry_time IS NOT NULL AND exit_time IS NULL '
                         'ORDER BY id DESC LIMIT 1',
                         (student_id, today)
                     )
-                    completed = c.fetchone()
+                    open_record = c.fetchone()
 
-                    if completed:
-                        entry_time, exit_time = completed
-                        face_result['status'] = 'already_exited'
-                        face_result['entry_time'] = entry_time
-                        face_result['exit_time'] = exit_time
-                        face_result['emp_status'] = 'Completed'
-                        face_result['message'] = 'Exit already recorded.'
+                    if open_record:
+                        attendance_id, entry_time, _ = open_record
+                        ear = compute_face_ear(img_array, tuple(box))
+                        if not check_liveness(student_id, ear):
+                            face_result['status'] = 'liveness_pending'
+                            face_result['entry_time'] = entry_time
+                            face_result['ear'] = ear
+                            face_result['message'] = '👁 ' + name + ' - Please blink to verify you are a real person.'
+                        else:
+                            clear_liveness(student_id)
+                            c.execute(
+                                "UPDATE attendance SET exit_time = ?, status = 'Completed' WHERE id = ?",
+                                (now_time, attendance_id)
+                            )
+                            conn.commit()
+
+                            face_result['status'] = 'marked'
+                            face_result['entry_time'] = entry_time
+                            face_result['exit_time'] = now_time
+                            face_result['emp_status'] = 'Completed'
+                            face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
+
                     else:
-                        face_result['status'] = 'no_entry'
-                        face_result['entry_time'] = None
-                        face_result['exit_time'] = None
-                        face_result['emp_status'] = 'Not Entered'
-                        face_result['message'] = 'Please mark entry first.'
+                        # 2) No open record — either already exited today, or never entered.
+                        c.execute(
+                            'SELECT entry_time, exit_time FROM attendance '
+                            'WHERE student_id = ? AND date = ? AND entry_time IS NOT NULL AND exit_time IS NOT NULL '
+                            'ORDER BY id DESC LIMIT 1',
+                            (student_id, today)
+                        )
+                        completed = c.fetchone()
+
+                        if completed:
+                            entry_time, exit_time = completed
+                            face_result['status'] = 'already_exited'
+                            face_result['entry_time'] = entry_time
+                            face_result['exit_time'] = exit_time
+                            face_result['emp_status'] = 'Completed'
+                            face_result['message'] = 'Exit already recorded.'
+                        else:
+                            face_result['status'] = 'no_entry'
+                            face_result['entry_time'] = None
+                            face_result['exit_time'] = None
+                            face_result['emp_status'] = 'Not Entered'
+                            face_result['message'] = 'Please mark entry first.'
 
             except sqlite3.Error as db_err:
                 print('DB error while processing exit for student', student_id, ':', db_err)

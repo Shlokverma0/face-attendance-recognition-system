@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Attendance Dashboard</h2>
+    <p>Summary and reports will appear here.</p>
+
+    <div class="stats-grid">
+        <div class="stat-card stat-present">
+            <h3>{{ stats.total_present }}</h3>
+            <p>Total Present</p>
+        </div>
+        <div class="stat-card stat-entry">
+            <h3>{{ stats.entry_count }}</h3>
+            <p>Entry Count</p>
+        </div>
+        <div class="stat-card stat-exit">
+            <h3>{{ stats.exit_count }}</h3>
+            <p>Exit Count</p>
+        </div>
+        <div class="stat-card stat-inside">
+            <h3>{{ stats.still_inside }}</h3>
+            <p>Still Inside</p>
+        </div>
+        <div class="stat-card stat-completed">
+            <h3>{{ stats.completed_day }}</h3>
+            <p>Completed Day</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>Class</th>
+                    <th>Date</th>
+                    <th>Entry Time</th>
+                    <th>Exit Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="attendanceTableBody">
+                {% if records %}
+                    {% for record in records %}
+                    <tr id="row-{{ record[0] }}">
+                        <td><strong>{{ record[2] }}</strong></td>
+                        <td>{{ record[1] }}</td>
+                        <td>{{ record[3] }}</td>
+                        <td>{{ record[4] }}</td>
+                        <td>{{ record[5] if record[5] else '—' }}</td>
+                        <td>{{ record[6] if record[6] else '—' }}</td>
+                        <td>
+                            {% if record[7] == 'completed' %}
+                            <span style="padding: 4px 10px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Completed</span>
+                            {% else %}
+                            <span style="padding: 4px 10px; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Inside</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn danger delete-btn" data-id="{{ record[0] }}" style="padding: 6px 12px; font-size: 0.8rem;">🗑️ Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="8" style="text-align:center; color: var(--muted); padding: 24px;">No attendance records found yet.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="buttons" style="margin-top: 24px;">
+        <a href="{{ url_for('export_attendance') }}" class="btn secondary">📊 Export to Excel (.xlsx)</a>
+        <button id="deleteAllBtn" class="btn danger">🗑️ Delete All Attendance</button>
+        <button id="deleteAllStudentsBtn" class="btn danger">🗑️ Delete All Registered Faces</button>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h2>Registered Students & Biometric Enrolment</h2>
+    <p>Manage registered student profiles and their stored face embeddings.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Roll No / ID</th>
+                    <th>Name</th>
+                    <th>Class / Dept</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if students_list %}
+                    {% for student in students_list %}
+                    <tr id="student-row-{{ student[0] }}">
+                        <td><strong>{{ student[2] }}</strong></td>
+                        <td>{{ student[1] }}</td>
+                        <td>{{ student[3] }}</td>
+                        <td>
+                            <button class="btn danger delete-student-btn" data-id="{{ student[0] }}" data-name="{{ student[1] }}" style="padding: 6px 12px; font-size: 0.8rem;">🗑️ Delete Profile</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="4" style="text-align:center; color: var(--muted); padding: 24px;">No registered students found.</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h2>🔥 Fire & Smoke Detection Test Mode (Part 2)</h2>
+    <p>Test the fine-tuned YOLO fire/smoke detection pipeline end-to-end using <code>test_fire.jpg</code>. Confirm bounding box rendering, persistent red banner, looping Web Audio siren, manual dismissal (with 30s re-arm), and database logging.</p>
+
+    <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <button id="runFireTestBtn" class="btn danger" style="background: linear-gradient(135deg, #ef4444, #b91c1c);">🔥 Run Fire Test on test_fire.jpg</button>
+        <span id="fireTestStatus" style="font-size: 0.9rem; color: var(--muted);">Click button to run test inference</span>
+    </div>
+
+    <div id="fireTestPreviewContainer" style="margin-top: 16px; display: none;">
+        <h4>Detection Snapshot Preview with Bounding Box Overlay</h4>
+        <img id="fireTestImg" style="max-width: 100%; max-height: 400px; border-radius: 12px; border: 2px solid #ef4444; box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);" />
+        <div id="fireTestDetails" style="margin-top: 10px; font-size: 0.95rem;"></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h2>🚨 Fire Alert History & Audit Logs</h2>
+    <p>Recorded emergency fire and smoke detection events from cameras and test mode.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Alert ID</th>
+                    <th>Timestamp</th>
+                    <th>Confidence</th>
+                    <th>Label</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody id="fireAlertsTableBody">
+                <tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 18px;">Loading fire alert history...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h2>⚠️ After-Hours Intrusion Detection (Restricted Schedule)</h2>
+    <p>Detects ANY face (recognized or unrecognized) during configured restricted hours (<code>RESTRICTED_START=15:25</code>). Triggers DB logs, Email alerts, and SMS/WhatsApp notifications with 60s event cooldown.</p>
+
+    <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <button id="runAfterHoursTestBtn" class="btn warning" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 700;">⚠️ Trigger Test Intrusion Alert</button>
+        <span id="afterHoursTestStatus" style="font-size: 0.9rem; color: var(--muted);">Click button to simulate intruder detection</span>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h2>🚨 After-Hours Intrusion History Logs</h2>
+    <p>Recorded security intrusion events during restricted time windows.</p>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Alert ID</th>
+                    <th>Timestamp</th>
+                    <th>Person Summary</th>
+                    <th>Confidence</th>
+                    <th>Camera Source</th>
+                </tr>
+            </thead>
+            <tbody id="afterHoursTableBody">
+                <tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 18px;">Loading after-hours alert history...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const deleteStudentBtns = document.querySelectorAll('.delete-student-btn');
+    deleteStudentBtns.forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+            const studentId = btn.getAttribute('data-id');
+            const studentName = btn.getAttribute('data-name');
+            const confirmed = await showConfirmModal({
+                title: 'Delete Student Biometric Profile',
+                message: `Are you sure you want to delete ${studentName}? This will permanently remove their biometric face encoding and profile. Historical attendance records will be preserved for audit trail.`,
+                confirmText: 'Delete Profile',
+                danger: true
+            });
+
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch('/delete-student/' + studentId, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const row = document.getElementById('student-row-' + studentId);
+                    if (row) row.remove();
+                    showToast(result.message, 'success');
+                } else {
+                    showToast('Failed to delete student: ' + result.message, 'error');
+                }
+            } catch (err) {
+                console.error('Delete student error:', err);
+                showToast('Server error while deleting student.', 'error');
+            }
+        });
+    });
+
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
+    if (deleteAllBtn) {
+        deleteAllBtn.addEventListener('click', async function () {
+            const confirmed = await showConfirmModal({
+                title: 'Delete All Attendance Records',
+                message: 'This will permanently delete ALL attendance records (entries and exits for everyone). Registered faces will NOT be affected. This cannot be undone. Continue?',
+                confirmText: 'Delete All Attendance',
+                danger: true
+            });
+            if (!confirmed) return;
+
+            fetch("{{ url_for('delete_all_attendance') }}", { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('All attendance records deleted successfully', 'success');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        showToast('Failed to delete records: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Delete-all error:', err);
+                    showToast('Something went wrong while deleting records.', 'error');
+                });
+        });
+    }
+
+    const deleteAllStudentsBtn = document.getElementById('deleteAllStudentsBtn');
+    if (deleteAllStudentsBtn) {
+        deleteAllStudentsBtn.addEventListener('click', async function () {
+            const confirmed = await showConfirmModal({
+                title: 'Delete All Registered Faces',
+                message: 'This will permanently delete ALL registered faces AND all attendance records. Everyone will need to register again from scratch. This cannot be undone. Continue?',
+                confirmText: 'Delete All Registered Faces',
+                danger: true
+            });
+            if (!confirmed) return;
+
+            fetch("{{ url_for('delete_all_students') }}", { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast('All registered faces deleted successfully', 'success');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        showToast('Failed to delete registered faces: ' + (data.message || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Delete-all-students error:', err);
+                    showToast('Something went wrong while deleting registered faces.', 'error');
+                });
+        });
+    }
+
+    // ---------- FIRE TEST MODE & LOG TABLE HANDLERS ----------
+    const runFireTestBtn = document.getElementById('runFireTestBtn');
+    const fireTestStatus = document.getElementById('fireTestStatus');
+    const fireTestPreviewContainer = document.getElementById('fireTestPreviewContainer');
+    const fireTestImg = document.getElementById('fireTestImg');
+    const fireTestDetails = document.getElementById('fireTestDetails');
+    const fireAlertsTableBody = document.getElementById('fireAlertsTableBody');
+
+    function loadFireAlertsHistory() {
+        if (!fireAlertsTableBody) return;
+        fetch('/api/fire-alerts')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.alerts && data.alerts.length > 0) {
+                    let html = '';
+                    data.alerts.forEach(alert => {
+                        html += `<tr>
+                            <td>#${alert.id}</td>
+                            <td>${alert.timestamp}</td>
+                            <td><strong style="color: #ef4444;">${(alert.confidence * 100).toFixed(0)}%</strong></td>
+                            <td><span style="padding: 3px 10px; background: rgba(239,68,68,0.2); color: #fca5a5; border-radius: 10px; font-weight: 600;">${alert.label}</span></td>
+                            <td>${alert.camera_source}</td>
+                        </tr>`;
+                    });
+                    fireAlertsTableBody.innerHTML = html;
+                } else {
+                    fireAlertsTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 18px;">No fire alerts recorded in database yet.</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error("Load fire alerts error:", err);
+                if (fireAlertsTableBody) {
+                    fireAlertsTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--red); padding: 18px;">Failed to load fire alerts.</td></tr>';
+                }
+            });
+    }
+
+    if (runFireTestBtn) {
+        runFireTestBtn.addEventListener('click', function () {
+            fireTestStatus.textContent = '⏳ Running YOLO fire inference on test_fire.jpg...';
+            fetch('/api/test-fire', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        fireTestStatus.textContent = '✅ ' + data.message;
+                        if (data.frame && fireTestImg) {
+                            fireTestImg.src = data.frame;
+                            fireTestPreviewContainer.style.display = 'block';
+                        }
+                        if (data.fire_alert && typeof triggerFireAlertUI === 'function') {
+                            triggerFireAlertUI();
+                        }
+                        if (fireTestDetails) {
+                            fireTestDetails.innerHTML = `<p class="success" style="color: #4ade80;">🔥 <strong>Test Result:</strong> Fire detected with ${data.fire_boxes.length} bounding box(es). Alarm & DB log triggered!</p>`;
+                        }
+                        loadFireAlertsHistory();
+                    } else {
+                        fireTestStatus.textContent = '❌ Test failed: ' + (data.error || 'Unknown error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Fire test error:', err);
+                    fireTestStatus.textContent = '❌ Server error running test.';
+                });
+        });
+    }
+
+    // ---------- AFTER-HOURS INTRUSION HANDLERS ----------
+    const runAfterHoursTestBtn = document.getElementById('runAfterHoursTestBtn');
+    const afterHoursTestStatus = document.getElementById('afterHoursTestStatus');
+    const afterHoursTableBody = document.getElementById('afterHoursTableBody');
+
+    function loadAfterHoursHistory() {
+        if (!afterHoursTableBody) return;
+        fetch('/api/after-hours-alerts')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.alerts && data.alerts.length > 0) {
+                    let html = '';
+                    data.alerts.forEach(alert => {
+                        const confPct = alert.confidence ? (alert.confidence * 100).toFixed(0) + '%' : 'N/A';
+                        html += `<tr>
+                            <td>#${alert.id}</td>
+                            <td>${alert.timestamp}</td>
+                            <td><strong style="color: #f59e0b;">${alert.person_name}</strong></td>
+                            <td><span class="badge warning" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 4px 8px; border-radius: 4px;">${confPct}</span></td>
+                            <td>${alert.camera_source}</td>
+                        </tr>`;
+                    });
+                    afterHoursTableBody.innerHTML = html;
+                } else {
+                    afterHoursTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--muted); padding: 18px;">No after-hours intrusion alerts recorded in database yet.</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error("Load after-hours alerts error:", err);
+                if (afterHoursTableBody) {
+                    afterHoursTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--red); padding: 18px;">Failed to load intrusion alerts.</td></tr>';
+                }
+            });
+    }
+
+    if (runAfterHoursTestBtn) {
+        runAfterHoursTestBtn.addEventListener('click', function () {
+            afterHoursTestStatus.textContent = '⏳ Triggering test after-hours intrusion alert...';
+            fetch('/api/test-after-hours', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        afterHoursTestStatus.textContent = '✅ ' + data.message;
+                        showToast('After-hours intrusion alert triggered successfully!', 'warning');
+                        loadAfterHoursHistory();
+                    } else {
+                        afterHoursTestStatus.textContent = '❌ Test failed: ' + (data.error || 'Unknown error');
+                    }
+                })
+                .catch(err => {
+                    console.error('After-hours test error:', err);
+                    afterHoursTestStatus.textContent = '❌ Server error running test.';
+                });
+        });
+    }
+
+    loadFireAlertsHistory();
+    loadAfterHoursHistory();
+});
+</script>
+{% endblock %}

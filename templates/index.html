@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Home — {{ APP_NAME }}{% endblock %}
+{% block content %}
+<div class="hero">
+    <div style="display: inline-block; padding: 6px 16px; background: rgba(34, 211, 238, 0.12); border: 1px solid var(--border-bright); border-radius: 20px; font-size: 0.85rem; font-weight: 600; color: #a5f3fc; margin-bottom: 20px;">
+        ⚡ AI-Powered Facial Recognition & Blink Liveness Verification
+    </div>
+    <h1>Automated Attendance & Exit Tracking System</h1>
+    <p>Seamlessly detect entry and exit times, verify eye-blink liveness, and export attendance records with real-time accuracy.</p>
+    <div class="buttons">
+        <a href="{{ url_for('mark_attendance') }}" class="btn primary">📸 Mark Attendance</a>
+        <a href="{{ url_for('mark_exit') }}" class="btn primary">🚪 Mark Exit (RTSP)</a>
+        <a href="{{ url_for('register') }}" class="btn secondary">👤 Register Student</a>
+        <a href="{{ url_for('dashboard') }}" class="btn secondary">📊 View Dashboard</a>
+    </div>
+</div>
+{% endblock %}

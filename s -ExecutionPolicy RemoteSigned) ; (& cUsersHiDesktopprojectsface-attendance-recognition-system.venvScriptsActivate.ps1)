@@ -1,0 +1,36 @@
+[33mcommit 8444b643ba1930ecbe792b8fe80159c59a235dd3[m
+Author: Shlok Verma <vshlok24@gmail.com>
+Date:   Tue Jul 21 14:07:46 2026 +0530
+
+    Added dashboard updates and attendance features
+
+[33mcommit bd144228bfb017fba651d8c5655221684140be8c[m
+Author: Shlok Verma <vshlok24@gmail.com>
+Date:   Sun Jul 19 17:10:45 2026 +0530
+
+    Add Dockerfile and gunicorn for deployment
+
+[33mcommit 0aae065752b2caef0211cf97803f820d26656357[m
+Merge: 1f233ee 011b8a8
+Author: Shlok Verma <vshlok24@gmail.com>
+Date:   Sun Jul 19 12:29:55 2026 +0530
+
+    Merge branch 'main' of https://github.com/Shlokverma0/face-attendance-recognition-system
+
+[33mcommit 1f233eeb305187dd07032ad18f871613c359176a[m
+Author: Shlok Verma <vshlok24@gmail.com>
+Date:   Sun Jul 19 12:21:04 2026 +0530
+
+    Add automatic multi-face attendance detection
+
+[33mcommit a9b40ea3c48b3cf28cf65c3184e6d8e695f62ac7[m
+Author: Shlok Verma <vshlok24@gmail.com>
+Date:   Tue Jul 14 16:27:04 2026 +0530
+
+    Complete face attendance system with registration and recognition
+
+[33mcommit 26712a27e8b5a51c20506869ff9f5cbb0ccb407a[m
+Author: SHLOK VERMA <vshlok24@gmail.com>
+Date:   Mon Jul 13 14:28:07 2026 +0530
+
+    Add files via upload

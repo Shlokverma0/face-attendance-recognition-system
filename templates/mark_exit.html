@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Mark Exit{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>RTSP Exit Camera Scanner</h2>
+    <p>Connects directly to an external RTSP stream (e.g. phone "IP Webcam" app) to process exit attendance in real time.</p>
+
+    <div class="form-group" style="max-width: 500px;">
+        <label for="rtspUrl">RTSP Stream URL</label>
+        <input type="text" id="rtspUrl" placeholder="rtsp://192.168.1.5:8080/h264_ulaw.sdp">
+    </div>
+
+    <div style="margin-top: 10px;">
+        <button id="startExitCam" class="btn primary">▶ Start RTSP Camera</button>
+        <button id="stopExitCam" class="btn danger">⏹ Stop Camera</button>
+    </div>
+
+    <div id="exitCamStatus" style="margin-top: 12px; color: var(--muted); font-size: 0.9rem;">Exit camera not started yet.</div>
+
+    <!-- RTSP Camera HUD Frame -->
+    <div id="rtspPreviewContainer" class="camera-hud" style="display: none; margin: 20px 0;">
+        <div class="hud-corner top-left"></div>
+        <div class="hud-corner top-right"></div>
+        <div class="hud-corner bottom-left"></div>
+        <div class="hud-corner bottom-right"></div>
+
+        <div id="rtspHudPill" class="hud-status-pill scanning">
+            <span class="pill-icon">📡</span>
+            <span class="pill-text">RTSP Stream Active</span>
+        </div>
+
+        <div id="rtspLaserScan" class="hud-laser"></div>
+
+        <img id="rtspPreview" alt="RTSP Camera Live Stream Preview" />
+    </div>
+
+    <div id="exitDetails"></div>
+    <div id="attendanceResult" style="margin-top: 16px;"></div>
+</div>
+<script src="{{ url_for('static', filename='exit.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Register Student{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>Register New Student</h2>
+    <p>Fill in student details and align face inside the guide oval before capturing 5 reference images.</p>
+
+    <!-- Step Progress Indicator -->
+    <div class="step-counter">
+        <span>Face Capture Progress</span>
+        <span class="step-badge" id="stepBadge">Step 0 of 5</span>
+    </div>
+    <div class="capture-progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+    </div>
+
+    <!-- Camera Preview HUD with Face Guide Oval -->
+    <div class="camera-hud">
+        <div class="hud-corner top-left"></div>
+        <div class="hud-corner top-right"></div>
+        <div class="hud-corner bottom-left"></div>
+        <div class="hud-corner bottom-right"></div>
+
+        <!-- Floating HUD Status -->
+        <div id="hudStatusPill" class="hud-status-pill scanning">
+            <span class="pill-icon">📸</span>
+            <span class="pill-text" id="regHudText">Align face inside the oval</span>
+        </div>
+
+        <!-- Face Alignment Oval Overlay -->
+        <div class="face-guide-overlay"></div>
+
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+
+    <div style="margin: 14px 0 20px 0;">
+        <button type="button" id="startCam" class="btn primary">▶ Start Camera</button>
+        <button type="button" id="stopCam" class="btn danger">⏹ Stop Camera</button>
+        <button type="button" id="captureBtn" class="btn success">📸 Capture 5 Images</button>
+    </div>
+
+    <!-- Thumbnail Gallery Grid -->
+    <div id="thumbGallery" class="thumb-gallery"></div>
+    <div id="captureStatus" style="margin-bottom: 20px; color: var(--muted); font-style: italic;">Not captured yet</div>
+
+    <form id="registerForm">
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" placeholder="e.g. Rahul Sharma" required />
+        </div>
+        <div class="form-group">
+            <label for="roll_no">Roll Number / ID</label>
+            <input type="text" id="roll_no" placeholder="e.g. CS101" required />
+        </div>
+        <div class="form-group">
+            <label for="class">Class / Department</label>
+            <input type="text" id="class" placeholder="e.g. Class 10-A" required />
+        </div>
+        <button type="submit" class="btn primary" style="width: 100%; margin-top: 10px;">Confirm & Register Student</button>
+    </form>
+</div>
+{% endblock %}

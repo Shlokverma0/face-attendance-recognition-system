@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}{{ APP_NAME }}{% endblock %}</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script>window.APP_NAME = {{ APP_NAME | tojson }};</script>
+</head>
+<body>
+    <!-- Persistent Red Fire Alert Banner -->
+    <div id="fireAlertBanner" class="fire-alert-banner" style="display: none;">
+        <div class="fire-alert-content">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="fire-icon" style="font-size: 1.5rem;">🔥</span>
+                <span class="fire-text"><strong>EMERGENCY WARNING:</strong> FIRE / SMOKE DETECTED!</span>
+            </div>
+            <button id="dismissFireAlert" class="btn-dismiss-fire">Dismiss Alarm (30s Silence)</button>
+        </div>
+    </div>
+    <div id="main">
+        <div id="header">
+            <nav class="navbar">
+                <a href="{{ url_for('index') }}" class="logo">
+                    <span class="logo-icon">📸</span>
+                    <span class="logo-text">{{ APP_NAME }}</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+                    <li><a href="{{ url_for('register') }}" class="nav-link">Register</a></li>
+                    <li><a href="{{ url_for('mark_attendance') }}" class="nav-link">Mark Attendance</a></li>
+                    <li><a href="{{ url_for('mark_exit') }}" class="nav-link">Mark Exit</a></li>
+                    <li><a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a></li>
+                    {% if session.get('logged_in') %}
+                    <li><a href="{{ url_for('logout') }}" class="nav-link nav-btn-outline">Logout ({{ session.get('username') }})</a></li>
+                    {% else %}
+                    <li><a href="{{ url_for('login') }}" class="nav-link nav-btn-primary">Admin Login</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        <div id="content">
+            {% block content %}{% endblock %}
+        </div>
+        <div id="footer">
+            <p>&copy; 2026 {{ APP_NAME }} — Built by <a href="https://github.com/Arpit-tyagi001" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none; font-weight: 500;">Arpit Tyagi</a> &amp; <a href="https://github.com/shlokverma0" target="_blank" rel="noopener" style="color: var(--accent); text-decoration: none; font-weight: 500;">Shlok Verma</a></p>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

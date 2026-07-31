@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin Login{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 420px; margin: 40px auto;">
+    <h2 style="text-align: center; margin-bottom: 8px;">Admin Login</h2>
+    <p style="text-align: center; font-size: 0.9rem; margin-bottom: 24px;">Sign in to access dashboard analytics and records</p>
+
+    {% if error %}
+    <div style="padding: 10px 14px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; color: #fecaca; font-size: 0.9rem; margin-bottom: 18px; font-weight: 500;">
+        ⚠️ {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="Enter admin username" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter admin password" required>
+        </div>
+
+        <button type="submit" class="btn primary" style="width: 100%; margin-top: 10px; padding: 12px;">Sign In to Dashboard</button>
+    </form>
+</div>
+{% endblock %}

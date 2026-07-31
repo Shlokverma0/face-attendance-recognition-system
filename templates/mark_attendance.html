@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+{% block content %}
+<div class="card" data-endpoint="{{ url_for('mark_attendance') }}">
+    <h2>Live Attendance Scanner</h2>
+    <p>Position your face in front of the camera. The system will detect your face and verify liveness before marking entry or exit.</p>
+
+    <div class="camera-hud">
+        <!-- Target Corner Brackets -->
+        <div class="hud-corner top-left"></div>
+        <div class="hud-corner top-right"></div>
+        <div class="hud-corner bottom-left"></div>
+        <div class="hud-corner bottom-right"></div>
+
+        <!-- Floating Status Indicator Pill Badge -->
+        <div id="hudStatusPill" class="hud-status-pill scanning">
+            <span class="pill-icon">🔍</span>
+            <span class="pill-text">Camera Off — Press Start</span>
+        </div>
+
+        <!-- Laser Scanner Line -->
+        <div id="laserScan" class="hud-laser paused"></div>
+
+        <!-- Video & Overlay Layers -->
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+
+    <div style="margin-top: 16px;">
+        <button id="startCam" class="btn primary">▶ Start Camera</button>
+        <button id="stopCam" class="btn danger">⏹ Stop Camera</button>
+    </div>
+
+    <div id="attendanceResult" style="margin-top: 16px;"></div>
+</div>
+<script src="{{ url_for('static', filename='attendance.js') }}"></script>
+{% endblock %}

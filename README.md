@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- Project logo placeholder — replace with your actual logo -->
-<img src="screenshots/logo.png" alt="SecureVision Pro Logo" width="120" />
+<img src="assets/logo.png" width="250" alt="SecureVision Pro Logo"/>
 
 # 🛡️ SecureVision Pro
 

@@ -13,9 +13,9 @@
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-00FFFF?style=for-the-badge&logo=yolo&logoColor=black)](https://github.com/ultralytics/ultralytics)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-Add--License-lightgrey?style=for-the-badge)](#-license)
-[![Stars](https://img.shields.io/github/stars/your-org/securevision-pro?style=for-the-badge&color=yellow)](#)
-[![Last Commit](https://img.shields.io/github/last-commit/your-org/securevision-pro?style=for-the-badge&color=blue)](#)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Shlokverma0/face-attendance-recognition-system?style=for-the-badge&color=yellow)](https://github.com/Shlokverma0/face-attendance-recognition-system/stargazers)
+[![Last Commit](https://img.shields.io/github/last-commit/Shlokverma0/face-attendance-recognition-system?style=for-the-badge&color=blue)](https://github.com/Shlokverma0/face-attendance-recognition-system/commits/main)
 
 **Developed by:** SHLOK VERMA & ARPIT TYAGI — *AI/ML Engineers*
 

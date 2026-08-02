@@ -120,7 +120,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // Check for fire/smoke detection alert from backend
         if (data.fire_alert) {
             if (typeof triggerFireAlertUI === 'function') {
-                triggerFireAlertUI();
+                const topCategory = (data.fire_boxes && data.fire_boxes.length > 0)
+                    ? (data.fire_boxes[0].category || 'fire')
+                    : 'fire';
+                triggerFireAlertUI(false, topCategory);
             }
         }
 

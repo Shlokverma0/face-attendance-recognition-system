@@ -131,7 +131,7 @@ function stopFireAlarmLoop() {
 let latestFireDetectedState = false;
 let fireRearmTimeout = null;
 
-function triggerFireAlertUI(forceRearm = false) {
+function triggerFireAlertUI(forceRearm = false, category = 'fire') {
     latestFireDetectedState = true;
     const now = Date.now();
     const banner = document.getElementById('fireAlertBanner');
@@ -144,6 +144,16 @@ function triggerFireAlertUI(forceRearm = false) {
 
     if (banner) {
         banner.style.display = 'block';
+        // Flex banner icon/wording between fire and smoke without touching
+        // the existing DOM structure — banner markup itself is unchanged.
+        const icon = banner.querySelector('.fire-icon');
+        const text = banner.querySelector('.fire-text');
+        if (icon) icon.textContent = category === 'smoke' ? '💨' : '🔥';
+        if (text) {
+            text.innerHTML = category === 'smoke'
+                ? '<strong>WARNING:</strong> SMOKE DETECTED!'
+                : '<strong>EMERGENCY WARNING:</strong> FIRE / SMOKE DETECTED!';
+        }
     }
     // playFireAlarmLoop has a strict (fireAlarmActive) guard to prevent stacking oscillators
     playFireAlarmLoop();

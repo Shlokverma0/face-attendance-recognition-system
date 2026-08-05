@@ -1,0 +1,33 @@
+<!--
+    _events_feed.html — Unified Live Events panel.
+    Included from dashboard.html via:      
+-->
+<div class="card" style="margin-top: 24px;">
+    <h2>🛰️ Live Events Feed</h2>
+    <p>Unified real-time timeline of fire/smoke alerts, after-hours intrusion detections, and attendance milestones.</p>
+
+    <div style="margin: 14px 0 18px 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <select id="eventsTypeFilter" class="events-filter-select">
+            <option value="">All Types</option>
+            <option value="fire">🔥 Fire</option>
+            <option value="after_hours">⚠️ After-Hours</option>
+            <option value="attendance">👤 Attendance</option>
+            <option value="system">⚙️ System</option>
+        </select>
+        <select id="eventsSeverityFilter" class="events-filter-select">
+            <option value="">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="warning">Warning</option>
+            <option value="info">Info</option>
+        </select>
+        <button id="eventsRefreshBtn" class="btn secondary" style="padding: 8px 16px; font-size: 0.85rem;">↻ Refresh</button>
+        <span id="eventsLiveIndicator" class="events-live-dot" title="Auto-refreshing every 5s"></span>
+        <span style="font-size: 0.8rem; color: var(--muted);">Live</span>
+    </div>
+
+    <div id="eventsFeedContainer" class="events-feed-container">
+        <div class="events-feed-empty">Loading events...</div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='events.js') }}"></script>

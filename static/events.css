@@ -1,0 +1,125 @@
+/* events.css — styles for the Live Events Feed panel only.
+   Kept as a separate file so the existing style.css is never touched.
+   Reuses the existing color variables defined in style.css's :root
+   (--card, --border, --text, --muted, --accent) for visual consistency. */
+
+.events-filter-select {
+    background: var(--card-solid, #10151f);
+    color: var(--text, #e8eaf0);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-family: var(--font-main, inherit);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.events-live-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green, #22c55e);
+    box-shadow: 0 0 6px var(--green, #22c55e);
+}
+
+.events-live-dot.pulsing {
+    animation: events-pulse 0.6s ease-in-out;
+}
+
+@keyframes events-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.4); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.events-feed-container {
+    max-height: 420px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+}
+
+.events-feed-empty {
+    text-align: center;
+    color: var(--muted, #8b92a8);
+    padding: 24px;
+    font-style: italic;
+}
+
+.events-feed-empty.error {
+    color: var(--red, #ef4444);
+    font-style: normal;
+}
+
+.events-feed-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--panel, #10151f);
+    border: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.events-feed-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.events-feed-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.events-feed-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.events-feed-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+}
+
+.events-feed-message {
+    color: var(--text, #e8eaf0);
+    font-size: 0.9rem;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.events-feed-meta-row {
+    margin-top: 4px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--muted, #8b92a8);
+}
+
+.events-feed-source::before {
+    content: "📷 ";
+}
+
+.events-feed-conf {
+    font-weight: 600;
+}

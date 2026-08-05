@@ -16,6 +16,7 @@ import cv2
 import threading
 import time
 import os
+from events import init_events_table, log_event, get_recent_events
 
 app = Flask(__name__)
 app.secret_key = 'shlok-face-attendance-secret-key-2026'  # used to sign the session cookie
@@ -92,7 +93,7 @@ def init_db():
     print("Database ready.")
 
 init_db()
-
+init_events_table()
 
 def decode_base64_image(base64_string):
     if ',' in base64_string:
@@ -363,6 +364,8 @@ def clear_liveness(student_id):
 
 @app.route('/mark-attendance', methods=['GET', 'POST'])
 def mark_attendance():
+    frame_counter = 0
+#while True:
     """Single camera page. Automatically decides ENTRY vs EXIT per person:
     - No record today yet -> mark entry
     - Entry exists, no exit yet -> mark exit
@@ -391,6 +394,7 @@ def mark_attendance():
 
     try:
         img_array = decode_base64_image(image_data)
+        run_fire_detection(img_array, camera_source="Attendance Phone Cam")
 
         # Run fire detection on incoming frame
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
@@ -465,7 +469,7 @@ def mark_attendance():
                         face_result['status'] = 'marked'
                         face_result['action'] = 'entry'
                         face_result['message'] = '✅ ' + name + ' - Entry marked! Time: ' + now_time
-
+                        log_event('attendance', 'info', f'{name} — entry marked', camera_source='Webcam', conn=conn)
                 else:
                     attendance_id, entry_time, exit_time = existing
 
@@ -487,7 +491,7 @@ def mark_attendance():
                                 face_result['status'] = 'marked'
                                 face_result['action'] = 'exit'
                                 face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
-
+                                log_event('attendance', 'info', f'{name} — exit marked', camera_source='Webcam', conn=conn)
                     else:
                         if exit_time is not None and seconds_since(exit_time) < COOLDOWN_SECONDS:
                             face_result['status'] = 'already_marked'
@@ -509,7 +513,7 @@ def mark_attendance():
                                 face_result['status'] = 'marked'
                                 face_result['action'] = 'entry'
                                 face_result['message'] = '✅ ' + name + ' - Re-entry marked! Time: ' + now_time
-
+                                log_event('attendance', 'info', f'{name} — re-entry marked', camera_source='Webcam', conn=conn)
             results.append(face_result)
 
         conn.close()
@@ -597,7 +601,7 @@ def process_exit_image(img_array):
                             face_result['exit_time'] = now_time
                             face_result['emp_status'] = 'Completed'
                             face_result['message'] = '👋 ' + name + ' - Exit marked! Time: ' + now_time
-
+                            log_event('attendance', 'info', f'{name} — exit marked', camera_source='RTSP/Exit Camera', conn=conn)
                     else:
                         # 2) No open record — either already exited today, or never entered.
                         c.execute(
@@ -657,6 +661,7 @@ def mark_exit():
         return jsonify({'faces': [], 'error': 'Image nahi mili'})
 
     img_array = decode_base64_image(image_data)
+    run_fire_detection(img_array, camera_source="Exit Phone Cam")
     return jsonify(process_exit_image(img_array))
 
 
@@ -681,12 +686,18 @@ class RTSPFrameGrabber:
         self.thread.start()
 
     def _reader_loop(self):
+        frame_counter = 0
         while not self.stopped:
             if not self.cap.isOpened():
                 time.sleep(0.05)
                 continue
             success, frame = self.cap.read()
             if success and frame is not None:
+                frame_counter += 1
+                if frame_counter % 5 != 0:
+                    continue
+                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+                frame = cv2.resize(frame, (640, 480))
                 with self.lock:
                     self.latest_frame = frame
             else:
@@ -727,7 +738,8 @@ fire_alert_tracker = {
     'last_detected_time': 0.0,
     'lock': threading.Lock()
 }
-
+FIRE_CONF_THRESHOLD = float(os.environ.get('FIRE_CONF_THRESHOLD', 0.50))
+SMOKE_CONF_THRESHOLD = float(os.environ.get('SMOKE_CONF_THRESHOLD', 0.45))
 FIRE_LOG_COOLDOWN = 60.0  # seconds between logging new fire_alerts DB rows
 FIRE_RESET_GAP = 5.0      # seconds gap of no fire before treating next fire as a new event
 
@@ -955,6 +967,15 @@ def process_after_hours_check(faces, camera_source="Unknown", force_check=False)
     except Exception as e:
         print("After-hours DB insert error:", e)
 
+    log_event(
+        event_type='after_hours',
+        severity='warning',
+        message=f'{person_summary} detected during restricted hours',
+        camera_source=camera_source,
+        confidence=top_conf,
+        ref_table='after_hours_alerts'
+    )
+
     # Dispatch external Email, SMS & WhatsApp alerts asynchronously
     send_external_after_hours_alerts(timestamp_str, person_summary, top_conf, camera_source)
     return True, person_summary
@@ -1068,7 +1089,7 @@ def _send_after_hours_alerts_worker(timestamp_str, person_summary, confidence, c
         print(f"[ALERT NOTICE] After-hours SMS/WhatsApp alert skipped (ALERT_PHONE environment variable not set in .env).", flush=True)
 
 
-def run_fire_detection(frame_bgr, conf_thresh=0.50, camera_source="Unknown", force_log=False):
+def run_fire_detection(frame_bgr, conf_thresh=0.60, camera_source="Unknown", force_log=False):
     """Runs YOLO fire/smoke inference on frame_bgr (OpenCV format).
     Returns (detections, fire_found).
     Logs event to fire_alerts DB table with 60-second cooldown / 5s reset gap
@@ -1125,6 +1146,15 @@ def run_fire_detection(frame_bgr, conf_thresh=0.50, camera_source="Unknown", for
                     print(f"[{timestamp_str}] Fire alert logged to database from {camera_source}")
                 except Exception as db_err:
                     print("Fire alert DB insert error:", db_err)
+
+                log_event(
+                    event_type='fire',
+                    severity='critical',
+                    message=f'{top_label} detected ({top_conf * 100:.0f}% confidence)',
+                    camera_source=camera_source,
+                    confidence=top_conf,
+                    ref_table='fire_alerts'
+                )
 
                 # Send external Email, SMS, and WhatsApp alerts asynchronously
                 send_external_fire_alerts(timestamp_str, top_conf, top_label, camera_source)
@@ -1596,7 +1626,15 @@ def test_after_hours_endpoint():
     except Exception as e:
         print("Test after-hours endpoint error:", e)
         return jsonify({'success': False, 'error': str(e)})
-
+@app.route('/api/events', methods=['GET'])
+@login_required
+def api_events():
+    """Unified event timeline — fire, after-hours, and attendance events
+    in one feed. Optional query params: type, severity, limit."""
+    event_type = request.args.get('type')
+    severity = request.args.get('severity')
+    limit = int(request.args.get('limit', 50))
+    return jsonify({'success': True, 'events': get_recent_events(limit, event_type, severity)})
 
 @app.route('/api/after-hours-alerts', methods=['GET'])
 @login_required

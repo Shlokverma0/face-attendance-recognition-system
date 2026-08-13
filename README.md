@@ -52,7 +52,7 @@ Built for organizations that need more than a single-purpose tool, SecureVision 
 - 💨 **Smoke Detection** — independent smoke-class detection with its own confidence tuning
 - 🛰️ **Event Management** — a single unified timeline correlating every alert and milestone
 - 📣 **Alerting System** — instant Email, SMS, and WhatsApp notifications on critical events
-- 📊 **Dashboard Analytics** — live statistics, historical logs, and exportable attendance records
+- 📊 **Dashboard Analytics** — live statistics, historical logs, and exportable all attendance records
 
 The result is a platform that looks and behaves like a genuine enterprise security product — not a single-purpose student project.
 
